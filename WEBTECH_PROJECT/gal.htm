@@ -1,0 +1,851 @@
+<!DOCTYPE html>
+<html lang="en">
+
+<head>
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1" />
+<title>Secure Image Gallery with Folders and Private Section</title>
+<style>
+  /* Reset and base styles */
+  * {
+    box-sizing: border-box;
+  }
+  body {
+    margin: 0; font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+    background: linear-gradient(135deg, #1a1a2e 0%, #16213e 100%);
+    color: #eee;
+    min-height: 100vh;
+    display: flex; flex-direction: column;
+  }
+  h1 {
+    text-align: center;
+    padding: 24px 16px 8px;
+    margin: 0;
+    font-weight: 700;
+    letter-spacing: 3px;
+    text-transform: uppercase;
+    font-size: 2.75rem;
+    background: linear-gradient(90deg, #e94560 0%, #0f3460 100%);
+    -webkit-background-clip: text;
+    -webkit-text-fill-color: transparent;
+    user-select: none;
+  }
+  nav {
+    display: flex;
+    justify-content: center;
+    background: #16213e;
+    box-shadow: 0 2px 10px rgba(0,0,0,0.5);
+  }
+  nav button {
+    background: transparent;
+    border: none;
+    padding: 16px 24px;
+    font-size: 1rem;
+    color: #ccc;
+    cursor: pointer;
+    transition: color 0.3s ease;
+    user-select: none;
+  }
+  nav button:hover, nav button.active {
+    color: #e94560;
+    border-bottom: 3px solid #e94560;
+    outline: none;
+  }
+  main {
+    flex: 1;
+    max-width: 1200px;
+    margin: 24px auto 40px;
+    padding: 0 20px;
+  }
+  .section {
+    display: none;
+  }
+  .section.active {
+    display: block;
+  }
+  .gallery {
+    display: grid;
+    grid-template-columns: repeat(auto-fill, minmax(250px, 1fr));
+    gap: 18px;
+    user-select: none;
+  }
+  .gallery-item {
+    position: relative;
+    overflow: hidden;
+    border-radius: 16px;
+    background: linear-gradient(145deg, #1f2235, #161824);
+    box-shadow: 0 15px 40px rgba(0,0,0,0.7);
+    transition: transform 0.3s ease, box-shadow 0.3s ease;
+    cursor: pointer;
+  }
+  .gallery-item:hover, .gallery-item:focus {
+    transform: scale(1.05);
+    box-shadow: 0 20px 50px #e94560cc;
+    outline: none;
+  }
+  .gallery-item img {
+    width: 100%;
+    height: auto;
+    border-radius: 16px;
+    display: block;
+  }
+  .caption-overlay {
+    position: absolute;
+    bottom: 0;
+    width: 100%;
+    background: rgba(233,69,96,0.85);
+    padding: 10px 16px;
+    color: white;
+    font-weight: 600;
+    font-size: 1rem;
+    text-align: center;
+    border-radius: 0 0 16px 16px;
+  }
+  /* Folder creation */
+  .folder-controls {
+    margin-bottom: 20px;
+  }
+  .folder-controls input[type=text] {
+    padding: 8px 12px;
+    border-radius: 6px;
+    border: none;
+    outline: none;
+    font-size: 1rem;
+    width: 250px;
+    margin-right: 10px;
+  }
+  .folder-controls button {
+    padding: 9px 20px;
+    font-size: 1rem;
+    background: #e94560;
+    border: none;
+    border-radius: 6px;
+    color: white;
+    cursor: pointer;
+    user-select: none;
+    transition: background-color 0.3s ease;
+  }
+  .folder-controls button:hover, .folder-controls button:focus {
+    background: #b43749;
+    outline: none;
+  }
+
+  /* Folder list */
+  .folder-list {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 10px;
+  }
+  .folder-list button {
+    background: #253449;
+    border: none;
+    border-radius: 10px;
+    padding: 10px 20px;
+    cursor: pointer;
+    color: #eee;
+    user-select: none;
+    font-weight: 600;
+    box-shadow: 0 0 8px rgba(233,69,96,0.6);
+    transition: background-color 0.3s ease;
+  }
+  .folder-list button:hover, .folder-list button:focus {
+    outline: none;
+    background: #e94560;
+  }
+
+  /* Modal for image preview */
+  #modal {
+    display: none;
+    position: fixed; z-index: 1000;
+    left: 0; top: 0; width: 100%; height: 100%;
+    background: rgba(0,0,0,0.85);
+    align-items: center; justify-content: center;
+  }
+  #modal.show {
+    display: flex;
+  }
+  #modal img {
+    max-width: 90%;
+    max-height: 90vh;
+    border-radius: 16px;
+    box-shadow: 0 0 40px #e94560aa;
+  }
+  #modal .close-btn {
+    position: fixed;
+    top: 20px; right: 30px;
+    color: white;
+    font-size: 48px;
+    font-weight: 900;
+    cursor: pointer;
+    z-index: 1001;
+    user-select: none;
+    transition: color 0.3s ease;
+  }
+  #modal .close-btn:hover,
+  #modal .close-btn:focus {
+    color: #e94560;
+    outline: none;
+  }
+
+  /* User modals styles */
+  .overlay {
+    position: fixed;
+    inset: 0;
+    background: rgba(0,0,0,0.8);
+    display: none;
+    align-items: center;
+    justify-content: center;
+    z-index: 1500;
+  }
+  .overlay.show {
+    display: flex;
+  }
+  .modal-box {
+    background: #253449;
+    border-radius: 12px;
+    padding: 24px 32px;
+    max-width: 400px;
+    width: 90%;
+    color: #eee;
+    box-shadow: 0 8px 20px rgba(0,0,0,0.7);
+  }
+  .modal-box h2 {
+    margin-top: 0;
+    margin-bottom: 16px;
+    font-weight: 700;
+    letter-spacing: 1.2px;
+    text-align: center;
+  }
+  .modal-box label {
+    display: block;
+    margin-bottom: 6px;
+    font-size: 0.9rem;
+  }
+  .modal-box input[type=text],
+  .modal-box input[type=password] {
+    width: 100%;
+    padding: 10px 12px;
+    margin-bottom: 16px;
+    border-radius: 6px;
+    border: none;
+    font-size: 1rem;
+  }
+  .modal-box button {
+    width: 100%;
+    background: #e94560;
+    border: none;
+    color: white;
+    font-weight: 600;
+    padding: 12px;
+    border-radius: 8px;
+    cursor: pointer;
+    margin-top: 8px;
+    transition: background-color 0.3s ease;
+  }
+  .modal-box button:hover,
+  .modal-box button:focus {
+    background: #b43749;
+    outline: none;
+  }
+  .modal-box .link-btn {
+    background: transparent;
+    color: #ddd;
+    text-align: center;
+    font-size: 0.9rem;
+    margin-top: 10px;
+    text-decoration: underline;
+    cursor: pointer;
+    border: none;
+  }
+  .modal-box .link-btn:hover,
+  .modal-box .link-btn:focus {
+    color: #e94560;
+    outline: none;
+  }
+  .modal-box .error {
+    color: #ff6b6b;
+    font-weight: 600;
+    margin-bottom: 12px;
+  }
+
+  /* File input hidden */
+  input[type=file] {
+    display: none;
+  }
+
+  /* Add Image Upload Button */
+  #uploadImageBtn {
+    background: #e94560;
+    color: white;
+    border: none;
+    border-radius: 50%;
+    width: 56px;
+    height: 56px;
+    font-size: 36px;
+    cursor: pointer;
+    position: fixed;
+    bottom: 30px;
+    right: 30px;
+    box-shadow: 0 5px 15px #e94560cc;
+    user-select: none;
+    transition: background-color 0.3s ease;
+    z-index: 2000;
+  }
+  #uploadImageBtn:hover,
+  #uploadImageBtn:focus {
+    background-color: #b43749;
+    outline: none;
+  }
+  /* Folder Image selection area */
+  .folder-images {
+    margin-top: 20px;
+  }
+
+</style>
+</head>
+
+<body>
+<h1>Secure Image Gallery</h1>
+<nav aria-label="Main Navigation">
+  <button id="tabAllImages" class="active" aria-selected="true" role="tab" aria-controls="allImagesSection" tabindex="0">All Images</button>
+  <button id="tabFolders" role="tab" aria-controls="folderSection" tabindex="-1">Folders</button>
+  <button id="tabPrivate" role="tab" aria-controls="privateSection" tabindex="-1">Private</button>
+</nav>
+
+<main>
+  <!-- All Images Section -->
+  <section id="allImagesSection" class="section active" role="tabpanel" tabindex="0" aria-labelledby="tabAllImages">
+    <div class="gallery" id="allImagesGallery" aria-live="polite" aria-label="All images gallery"></div>
+  </section>
+
+  <!-- Folder Section -->
+  <section id="folderSection" class="section" role="tabpanel" tabindex="0" aria-labelledby="tabFolders">
+    <div class="folder-controls">
+      <input id="folderNameInput" type="text" placeholder="Enter new folder name" aria-label="New folder name" />
+      <button id="createFolderBtn" aria-label="Create folder">Create Folder</button>
+    </div>
+    <div class="folder-list" id="folderList" aria-label="List of folders"></div>
+    <div class="folder-images" id="folderImagesContainer"></div>
+    <button id="uploadFolderImageBtn" style="display:none; margin-top:10px; background-color:#0f3460;">Upload Image to Folder</button>
+    <input type="file" id="folderFileInput" accept="image/*" />
+  </section>
+
+  <!-- Private Section -->
+  <section id="privateSection" class="section" role="tabpanel" tabindex="0" aria-labelledby="tabPrivate">
+    <div id="privateLoggedOut" aria-live="polite">
+      <button id="showRegisterBtn" style="margin-bottom:12px;">Register</button>
+      <button id="showLoginBtn">Login</button>
+    </div>
+    <div id="privateLoggedIn" style="display:none;">
+      <p>Welcome, <span id="privateUsername"></span>!</p>
+      <button id="logoutPrivateBtn">Logout</button>
+      <button id="uploadPrivateImageBtn" style="margin-top: 12px; background-color:#0f3460;">Upload Image to Private</button>
+      <input type="file" id="privateFileInput" accept="image/*" style="display:none;"/>
+      <div class="gallery" id="privateGallery" aria-label="Private gallery" style="margin-top:20px;"></div>
+    </div>
+  </section>
+</main>
+
+<button id="uploadImageBtn" aria-label="Upload image to all images">+</button>
+<input type="file" id="uploadFileInput" accept="image/*" style="display:none;" />
+
+<!-- Modals -->
+
+<!-- Image Preview Modal -->
+<div id="modal" role="dialog" aria-modal="true" aria-label="Image preview">
+  <span class="close-btn" role="button" aria-label="Close image preview">&times;</span>
+  <img id="modalImg" src="" alt="" />
+</div>
+
+<!-- Register Modal -->
+<div id="registerModal" class="overlay" role="dialog" aria-modal="true" aria-labelledby="registerTitle" tabindex="-1">
+  <div class="modal-box">
+    <h2 id="registerTitle">Register</h2>
+    <div id="registerError" class="error"></div>
+    <label for="registerUsername">Username</label>
+    <input type="text" id="registerUsername" autocomplete="username" aria-required="true" />
+    <label for="registerPassword">Password</label>
+    <input type="password" id="registerPassword" autocomplete="new-password" aria-required="true" />
+    <button id="registerSubmitBtn">Register</button>
+    <button class="link-btn" id="switchToLoginBtn">Already have an account? Login</button>
+    <button class="link-btn" id="closeRegisterBtn">Cancel</button>
+  </div>
+</div>
+
+<!-- Login Modal -->
+<div id="loginModal" class="overlay" role="dialog" aria-modal="true" aria-labelledby="loginTitle" tabindex="-1">
+  <div class="modal-box">
+    <h2 id="loginTitle">Login</h2>
+    <div id="loginError" class="error"></div>
+    <label for="loginUsername">Username</label>
+    <input type="text" id="loginUsername" autocomplete="username" aria-required="true"/>
+    <label for="loginPassword">Password</label>
+    <input type="password" id="loginPassword" autocomplete="current-password" aria-required="true" />
+    <button id="loginSubmitBtn">Login</button>
+    <button class="link-btn" id="switchToRegisterBtn">Don't have an account? Register</button>
+    <button class="link-btn" id="showResetBtn">Forgot password?</button>
+    <button class="link-btn" id="closeLoginBtn">Cancel</button>
+  </div>
+</div>
+
+<!-- Password Reset Modal -->
+<div id="resetModal" class="overlay" role="dialog" aria-modal="true" aria-labelledby="resetTitle" tabindex="-1">
+  <div class="modal-box">
+    <h2 id="resetTitle">Reset Password</h2>
+    <div id="resetError" class="error"></div>
+    <label for="resetUsername">Enter Username</label>
+    <input type="text" id="resetUsername" autocomplete="username" aria-required="true"/>
+    <label for="resetPassword">New Password</label>
+    <input type="password" id="resetPassword" autocomplete="new-password" aria-required="true" />
+    <button id="resetSubmitBtn">Reset Password</button>
+    <button class="link-btn" id="closeResetBtn">Cancel</button>
+  </div>
+</div>
+
+<script>
+(() => {
+  // Persistent storage keys
+  const USERS_KEY = 'secure-gallery-users';
+  const CURRENT_USER_KEY = 'secure-gallery-current-user';
+  const FOLDERS_KEY = 'secure-gallery-folders';
+  const ALL_IMAGES_KEY = 'secure-gallery-all-images';
+  const PRIVATE_IMAGES_KEY = 'secure-gallery-private-images';
+
+  // Elements
+  const tabs = {
+    all: document.getElementById('tabAllImages'),
+    folders: document.getElementById('tabFolders'),
+    private: document.getElementById('tabPrivate'),
+  };
+  const sections = {
+    all: document.getElementById('allImagesSection'),
+    folders: document.getElementById('folderSection'),
+    private: document.getElementById('privateSection')
+  };
+  const allImagesGallery = document.getElementById('allImagesGallery');
+  const folderListDiv = document.getElementById('folderList');
+  const folderNameInput = document.getElementById('folderNameInput');
+  const createFolderBtn = document.getElementById('createFolderBtn');
+  const folderImagesContainer = document.getElementById('folderImagesContainer');
+  const uploadFolderImageBtn = document.getElementById('uploadFolderImageBtn');
+  const folderFileInput = document.getElementById('folderFileInput');
+  const privateLoggedOut = document.getElementById('privateLoggedOut');
+  const privateLoggedIn = document.getElementById('privateLoggedIn');
+  const privateUsernameSpan = document.getElementById('privateUsername');
+  const logoutPrivateBtn = document.getElementById('logoutPrivateBtn');
+  const uploadPrivateImageBtn = document.getElementById('uploadPrivateImageBtn');
+  const privateFileInput = document.getElementById('privateFileInput');
+  const privateGallery = document.getElementById('privateGallery');
+
+  const uploadImageBtn = document.getElementById('uploadImageBtn');
+  const uploadFileInput = document.getElementById('uploadFileInput');
+  const modal = document.getElementById('modal');
+  const modalImg = document.getElementById('modalImg');
+  const modalCloseBtn = modal.querySelector('.close-btn');
+
+  const registerModal = document.getElementById('registerModal');
+  const loginModal = document.getElementById('loginModal');
+  const resetModal = document.getElementById('resetModal');
+
+  const registerUsernameInput = document.getElementById('registerUsername');
+  const registerPasswordInput = document.getElementById('registerPassword');
+  const registerSubmitBtn = document.getElementById('registerSubmitBtn');
+  const registerErrorDiv = document.getElementById('registerError');
+  const closeRegisterBtn = document.getElementById('closeRegisterBtn');
+  const switchToLoginBtn = document.getElementById('switchToLoginBtn');
+
+  const loginUsernameInput = document.getElementById('loginUsername');
+  const loginPasswordInput = document.getElementById('loginPassword');
+  const loginSubmitBtn = document.getElementById('loginSubmitBtn');
+  const loginErrorDiv = document.getElementById('loginError');
+  const closeLoginBtn = document.getElementById('closeLoginBtn');
+  const switchToRegisterBtn = document.getElementById('switchToRegisterBtn');
+  const showResetBtn = document.getElementById('showResetBtn');
+
+  const resetUsernameInput = document.getElementById('resetUsername');
+  const resetPasswordInput = document.getElementById('resetPassword');
+  const resetSubmitBtn = document.getElementById('resetSubmitBtn');
+  const resetErrorDiv = document.getElementById('resetError');
+  const closeResetBtn = document.getElementById('closeResetBtn');
+
+  // State
+  let allImages = [];
+  let folders = {};
+  let currentFolder = null;
+  let users = {};
+  let currentUser = null;
+  let privateImages = [];
+
+  // Initialization
+  function loadFromStorage() {
+    users = JSON.parse(localStorage.getItem(USERS_KEY)) || {};
+    allImages = JSON.parse(localStorage.getItem(ALL_IMAGES_KEY)) || [
+      // default images
+      { src: 'Brainware-university.jpg', caption: 'Brainware University Campus' },
+      { src: 'brainware-overview.jpg', caption: 'Overview of Brainware University' },
+      { src: 'BRAINWARE_UNIVERSITY.jpeg', caption: 'BRAINWARE UNIVERSITY' },
+      { src: 'BRAINWARE_FULL_VIEW.jpg', caption: 'Full View of Brainware University' },
+      { src: 'BRAINWARE_FRONT_VIEW.avif', caption: 'Front View of Brainware University' },
+      { src: 'BRAINWARE_CLASS.avif', caption: 'Classroom at Brainware University' },
+      { src: 'BRAINWARE_B_IV.jpeg', caption: 'BRAINWARE Building B IV' },
+      { src: 'BRAAINWARE_UNIVERSITY2.jpg', caption: 'Another view of Brainware University' },
+    ];
+    folders = JSON.parse(localStorage.getItem(FOLDERS_KEY)) || {};
+    privateImages = JSON.parse(localStorage.getItem(PRIVATE_IMAGES_KEY)) || [];
+    currentUser = localStorage.getItem(CURRENT_USER_KEY);
+  }
+
+  function saveAll() {
+    localStorage.setItem(USERS_KEY, JSON.stringify(users));
+    localStorage.setItem(ALL_IMAGES_KEY, JSON.stringify(allImages));
+    localStorage.setItem(FOLDERS_KEY, JSON.stringify(folders));
+    localStorage.setItem(PRIVATE_IMAGES_KEY, JSON.stringify(privateImages));
+    if(currentUser)
+      localStorage.setItem(CURRENT_USER_KEY, currentUser);
+    else
+      localStorage.removeItem(CURRENT_USER_KEY);
+  }
+
+  // Tab Navigation
+  function setupTabs() {
+    Object.entries(tabs).forEach(([key, btn]) => {
+      btn.onclick = () => {
+        Object.keys(sections).forEach(k => {
+          sections[k].classList.toggle('active', k === key);
+          tabs[k].classList.toggle('active', k === key);
+          tabs[k].setAttribute('aria-selected', k === key ? 'true' : 'false');
+          tabs[k].tabIndex = k === key ? 0 : -1;
+        });
+        if(key === 'folders') {
+          renderFolderList();
+          clearFolderImages();
+          currentFolder = null;
+          uploadFolderImageBtn.style.display = 'none';
+        }
+        if(key === 'private') {
+          updatePrivateUI();
+        }
+      };
+    });
+  }
+
+  // Render gallery helper
+  function renderGallery(container, images) {
+    container.innerHTML = '';
+    if(images.length === 0) {
+      container.innerHTML = '<p style="grid-column:1/-1;text-align:center;color:#bbb;">No images to display.</p>';
+      return;
+    }
+    images.forEach((imgObj, idx) => {
+      const div = document.createElement('div');
+      div.className = 'gallery-item';
+      div.tabIndex = 0;
+      div.setAttribute('aria-label', imgObj.caption || 'Image');
+      const img = document.createElement('img');
+      img.src = imgObj.src;
+      img.alt = imgObj.caption || '';
+      div.appendChild(img);
+
+      const caption = document.createElement('div');
+      caption.className = 'caption-overlay';
+      caption.textContent = imgObj.caption || '';
+      div.appendChild(caption);
+
+      div.onclick = () => showModal(imgObj.src, imgObj.caption);
+      div.onkeypress = e => { if(e.key === 'Enter') showModal(imgObj.src, imgObj.caption); };
+
+      container.appendChild(div);
+    });
+  }
+
+  function showModal(src, alt) {
+    modal.classList.add('show');
+    modalImg.src = src;
+    modalImg.alt = alt || '';
+    modalCloseBtn.focus();
+  }
+  function closeModalFunc() {
+    modal.classList.remove('show');
+    modalImg.src = '';
+    modalImg.alt = '';
+  }
+
+  // All Images
+  function renderAllImages() {
+    renderGallery(allImagesGallery, allImages);
+  }
+
+  // Folder Section
+  function renderFolderList() {
+    folderListDiv.innerHTML = '';
+    const folderNames = Object.keys(folders);
+    if(folderNames.length === 0){
+      folderListDiv.textContent = "No folders yet. Create one above.";
+      return;
+    }
+    folderNames.forEach(name => {
+      const btn = document.createElement('button');
+      btn.textContent = name;
+      btn.onclick = () => openFolder(name);
+      folderListDiv.appendChild(btn);
+    });
+  }
+  function openFolder(name) {
+    currentFolder = name;
+    renderGallery(folderImagesContainer, folders[name]);
+    uploadFolderImageBtn.style.display = 'inline-block';
+  }
+  function clearFolderImages() {
+    folderImagesContainer.innerHTML = '';
+  }
+  function addFolderImage(fileDataUrl) {
+    if(!currentFolder) return alert('Select a folder to add image to!');
+    let caption = prompt('Enter caption for this image:', 'Folder Image');
+    if(caption === null) caption = 'Folder Image';
+    folders[currentFolder].push({src:fileDataUrl, caption});
+    saveAll();
+    openFolder(currentFolder);
+  }
+
+  // Private section
+  function updatePrivateUI() {
+    if(currentUser && users[currentUser]) {
+      privateLoggedOut.style.display = 'none';
+      privateLoggedIn.style.display = 'block';
+      privateUsernameSpan.textContent = currentUser;
+      renderGallery(privateGallery, privateImages);
+    } else {
+      privateLoggedOut.style.display = 'block';
+      privateLoggedIn.style.display = 'none';
+    }
+  }
+  function addPrivateImage(fileDataUrl) {
+    let caption = prompt('Enter caption for this private image:', 'Private Image');
+    if(caption === null) caption = 'Private Image';
+    privateImages.push({src:fileDataUrl, caption});
+    saveAll();
+    renderGallery(privateGallery, privateImages);
+  }
+
+  // User management
+  function registerUser(username, password) {
+    if(!username || !password) return 'Username and Password required.';
+    username = username.trim();
+    if(users[username]) return 'Username already exists.';
+    users[username] = btoa(password); // simple base64 encode just as lightweight obfuscation
+    saveAll();
+    return null; // success
+  }
+
+  function loginUser(username, password) {
+    username = username.trim();
+    const pwStored = users[username];
+    if(!pwStored) return 'User not found.';
+    if(btoa(password) !== pwStored) return 'Incorrect password.';
+    currentUser = username;
+    saveAll();
+    return null;
+  }
+
+  function resetPassword(username, newPassword) {
+    username = username.trim();
+    if(!users[username]) return 'User not found.';
+    if(!newPassword) return 'New password required.';
+    users[username] = btoa(newPassword);
+    saveAll();
+    return null;
+  }
+
+  function logoutUser() {
+    currentUser = null;
+    saveAll();
+    updatePrivateUI();
+  }
+
+  // Handle clicks and events
+
+  // Folder creation
+  createFolderBtn.onclick = () => {
+    const name = folderNameInput.value.trim();
+    if(!name) return alert('Folder name cannot be empty.');
+    if(folders[name]) return alert('Folder already exists.');
+    folders[name] = [];
+    saveAll();
+    renderFolderList();
+    folderNameInput.value = '';
+  };
+
+  // Uploading images
+  uploadImageBtn.onclick = () => uploadFileInput.click();
+  uploadFileInput.onchange = () => {
+    const file = uploadFileInput.files[0];
+    if(!file) return;
+    if(!file.type.startsWith('image/')) return alert('Select a valid image file.');
+    const reader = new FileReader();
+    reader.onload = e => {
+      let caption = prompt('Enter caption for image:', 'Image');
+      if(caption === null) caption = 'Image';
+      allImages.push({src:e.target.result, caption});
+      saveAll();
+      renderAllImages();
+      uploadFileInput.value = '';
+    };
+    reader.readAsDataURL(file);
+  };
+
+  // Folder upload button
+  uploadFolderImageBtn.onclick = () => {
+    if(!currentFolder) return alert('Select a folder to upload image.');
+    folderFileInput.click();
+  };
+  folderFileInput.onchange = () => {
+    const file = folderFileInput.files[0];
+    if(!file) return;
+    if(!file.type.startsWith('image/')) return alert('Select a valid image file.');
+    const reader = new FileReader();
+    reader.onload = e => {
+      addFolderImage(e.target.result);
+      folderFileInput.value = '';
+    };
+    reader.readAsDataURL(file);
+  };
+
+  // Private upload
+  uploadPrivateImageBtn.onclick = () => privateFileInput.click();
+  privateFileInput.onchange = () => {
+    const file = privateFileInput.files[0];
+    if(!file) return;
+    if(!file.type.startsWith('image/')) return alert('Select a valid image file.');
+    const reader = new FileReader();
+    reader.onload = e => {
+      addPrivateImage(e.target.result);
+      privateFileInput.value = '';
+    };
+    reader.readAsDataURL(file);
+  };
+
+  // Modal
+  modalCloseBtn.onclick = closeModalFunc;
+  modal.onclick = (e) => { if(e.target === modal) closeModalFunc(); };
+  document.addEventListener('keydown', (e) => {
+    if(e.key === 'Escape' && modal.classList.contains('show')) closeModalFunc();
+  });
+
+  // Navigation between tabs accessible keys
+  Object.values(tabs).forEach(btn => {
+    btn.addEventListener('keydown', e => {
+      if(e.key === 'ArrowRight' || e.key === 'ArrowLeft') {
+        e.preventDefault();
+        const keys = Object.keys(tabs);
+        let idx = keys.indexOf(Object.entries(tabs).find(([k,t])=>t===btn)[0]);
+        if(e.key === 'ArrowRight') idx = (idx+1)%keys.length; else idx = (idx-1+keys.length)%keys.length;
+        tabs[keys[idx]].focus();
+      }
+    });
+  });
+
+  // User Auth Modals and functionality
+
+  function showModalBox(modalBox) {
+    modalBox.classList.add('show');
+    const inputs = modalBox.querySelectorAll('input[type=text], input[type=password]');
+    if(inputs.length) inputs[0].focus();
+  }
+  function hideModalBox(modalBox) {
+    modalBox.classList.remove('show');
+    // Clear errors and inputs on close
+    const errorDiv = modalBox.querySelector('.error');
+    if(errorDiv) errorDiv.textContent = '';
+    const inputs = modalBox.querySelectorAll('input[type=text], input[type=password]');
+    inputs.forEach(i=>i.value='');
+  }
+
+  // Register modal
+  document.getElementById('showRegisterBtn').onclick = () => showModalBox(registerModal);
+  document.getElementById('closeRegisterBtn').onclick = () => hideModalBox(registerModal);
+  switchToLoginBtn.onclick = () => {
+    hideModalBox(registerModal);
+    showModalBox(loginModal);
+  };
+  registerSubmitBtn.onclick = () => {
+    const username = registerUsernameInput.value.trim();
+    const password = registerPasswordInput.value;
+    const err = registerUser(username,password);
+    if(err) {
+      registerErrorDiv.textContent = err;
+      return;
+    }
+    alert(`Registered successfully. You can now login.`);
+    hideModalBox(registerModal);
+    showModalBox(loginModal);
+  };
+
+  // Login modal
+  document.getElementById('showLoginBtn').onclick = () => showModalBox(loginModal);
+  document.getElementById('closeLoginBtn').onclick = () => hideModalBox(loginModal);
+  switchToRegisterBtn.onclick = () => {
+    hideModalBox(loginModal);
+    showModalBox(registerModal);
+  };
+  showResetBtn.onclick = () => {
+    hideModalBox(loginModal);
+    showModalBox(resetModal);
+  };
+  loginSubmitBtn.onclick = () => {
+    const username = loginUsernameInput.value.trim();
+    const password = loginPasswordInput.value;
+    const err = loginUser(username, password);
+    if(err){
+      loginErrorDiv.textContent = err;
+      return;
+    }
+    alert(`Welcome ${username}!`);
+    hideModalBox(loginModal);
+    updatePrivateUI();
+    // Switch to private tab automatically
+    Object.keys(tabs).forEach(k => {
+      const act = (k === 'private');
+      sections[k].classList.toggle('active', act);
+      tabs[k].classList.toggle('active', act);
+      tabs[k].setAttribute('aria-selected', act?'true':'false');
+      tabs[k].tabIndex = act?0:-1;
+    });
+  };
+
+  // Reset modal
+  document.getElementById('closeResetBtn').onclick = () => hideModalBox(resetModal);
+  resetSubmitBtn.onclick = () => {
+    const username = resetUsernameInput.value.trim();
+    const newPassword = resetPasswordInput.value;
+    const err = resetPassword(username,newPassword);
+    if(err) {
+      resetErrorDiv.textContent = err;
+      return;
+    }
+    alert(`Password reset successful for user ${username}. You can now login.`);
+    hideModalBox(resetModal);
+    showModalBox(loginModal);
+  };
+
+  // Logout Private
+  logoutPrivateBtn.onclick = () => {
+    logoutUser();
+  };
+
+  // Initialization main
+  function init() {
+    loadFromStorage();
+    renderAllImages();
+    renderFolderList();
+    updatePrivateUI();
+    setupTabs();
+
+    // Accessibility: focus first tab on load
+    tabs.all.focus();
+  }
+  init();
+})();
+</script>
+</body>
+</html>
+
